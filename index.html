@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DataAnalyzer - Sistema de Análise de Dados</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/x2js/3.4.0/x2js.min.js"></script>
+    <style>
+        .dropzone {
+            border: 2px dashed #4b5563;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+        }
+        .dropzone.active {
+            border-color: #3b82f6;
+            background-color: rgba(59, 130, 246, 0.05);
+        }
+        .gaussian-chart {
+            background: linear-gradient(to bottom, #f8fafc, #e2e8f0);
+            border-radius: 0.5rem;
+        }
+        .sidebar {
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 #f1f5f9;
+        }
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .sidebar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .sidebar::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 20px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Cabeçalho -->
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">DataAnalyzer</h1>
+            <p class="text-gray-600">Sistema avançado para análise de dados e visualização</p>
+        </header>
+
+        <div class="flex flex-col lg:flex-row gap-8">
+            <!-- Sidebar -->
+            <div class="w-full lg:w-1/4 bg-white rounded-lg shadow-md p-6 sidebar overflow-y-auto max-h-screen">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">Configurações</h2>
+                
+                <!-- Upload de arquivo -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium text-gray-700 mb-2">1. Carregar Dados</h3>
+                    <div id="dropzone" class="dropzone p-8 text-center cursor-pointer mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <p class="text-gray-500 mt-2">Arraste e solte seu arquivo aqui</p>
+                        <p class="text-sm text-gray-400">ou</p>
+                        <button id="browseBtn" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">Selecionar arquivo</button>
+                        <input type="file" id="fileInput" class="hidden" accept=".xml,.csv,.txt,.json">
+                    </div>
+                    <div class="text-sm text-gray-500">
+                        Formatos suportados: XML, CSV, TXT, JSON
+                    </div>
+                </div>
+
+                <!-- Seleção de colunas -->
+                <div class="mb-6" id="columnSelection" style="display: none;">
+                    <h3 class="text-lg font-medium text-gray-700 mb-2">2. Selecionar Colunas</h3>
+                    <div class="space-y-2" id="columnCheckboxes">
+                        <!-- Colunas serão adicionadas dinamicamente aqui -->
+                    </div>
+                </div>
+
+                <!-- Operações -->
+                <div class="mb-6" id="operationsSection" style="display: none;">
+                    <h3 class="text-lg font-medium text-gray-700 mb-2">3. Operações</h3>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Cálculos</label>
+                        <select id="calculationSelect" class="w-full p-2 border border-gray-300 rounded-md">
+                            <option value="">Selecione um cálculo</option>
+                            <option value="mean">Média</option>
+                            <option value="median">Mediana</option>
+                            <option value="stddev">Desvio Padrão</option>
+                            <option value="sum">Soma</option>
+                            <option value="min">Mínimo</option>
+                            <option value="max">Máximo</option>
+                            <option value="count">Contagem</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Conversões</label>
+                        <select id="conversionSelect" class="w-full p-2 border border-gray-300 rounded-md">
+                            <option value="">Selecione uma conversão</option>
+                            <option value="celsiusToFahrenheit">°C → °F</option>
+                            <option value="fahrenheitToCelsius">°F → °C</option>
+                            <option value="kelvinToCelsius">K → °C</option>
+                            <option value="celsiusToKelvin">°C → K</option>
+                            <option value="metersToFeet">Metros → Pés</option>
+                            <option value="feetToMeters">Pés → Metros</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Filtros</label>
+                        <input type="text" id="filterInput" placeholder="Ex: valor > 100" class="w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+
+                    <button id="applyOperationsBtn" class="w-full py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+                        Aplicar Operações
+                    </button>
+                </div>
+
+                <!-- Configuração do Gráfico -->
+                <div class="mb-6" id="chartConfigSection" style="display: none;">
+                    <h3 class="text-lg font-medium text-gray-700 mb-2">4. Configurar Gráfico</h3>
+                    
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de Gráfico</label>
+                        <select id="chartType" class="w-full p-2 border border-gray-300 rounded-md">
+                            <option value="line">Linha</option>
+                            <option value="bar">Barras</option>
+                            <option value="scatter">Dispersão</option>
+                            <option value="gaussian">Curva Gaussiana</option>
+                            <option value="histogram">Histograma</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Eixo X</label>
+                        <select id="xAxisSelect" class="w-full p-2 border border-gray-300 rounded-md">
+                            <!-- Opções serão preenchidas dinamicamente -->
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Eixo Y</label>
+                        <select id="yAxisSelect" class="w-full p-2 border border-gray-300 rounded-md">
+                            <!-- Opções serão preenchidas dinamicamente -->
+                        </select>
+                    </div>
+
+                    <div class="mb-3" id="gaussianOptions" style="display: none;">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Parâmetros Gaussianos</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-xs text-gray-500">Média (μ)</label>
+                                <input type="number" id="gaussianMean" value="0" step="0.1" class="w-full p-2 border border-gray-300 rounded-md">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-500">Desvio Padrão (σ)</label>
+                                <input type="number" id="gaussianStdDev" value="1" step="0.1" min="0.1" class="w-full p-2 border border-gray-300 rounded-md">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="generateChartBtn" class="w-full py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition">
+                        Gerar Gráfico
+                    </button>
+                </div>
+            </div>
+
+            <!-- Área principal -->
+            <div class="w-full lg:w-3/4">
+                <!-- Visualização de dados -->
+                <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">Dados</h2>
+                        <button id="exportDataBtn" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition text-sm" style="display: none;">
+                            Exportar Dados
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table id="dataTable" class="w-full border-collapse">
+                            <thead>
+                                <tr class="bg-gray-100">
+                                    <!-- Cabeçalho será preenchido dinamicamente -->
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dados serão preenchidos dinamicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Visualização do gráfico -->
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">Visualização</h2>
+                        <button id="downloadChartBtn" class="px-3 py-1 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition text-sm" style="display: none;">
+                            Download Gráfico
+                        </button>
+                    </div>
+                    <div class="gaussian-chart p-4">
+                        <canvas id="dataChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variáveis globais
+        let rawData = [];
+        let processedData = [];
+        let columns = [];
+        let currentChart = null;
+        let fileType = '';
+
+        // Elementos do DOM
+        const dropzone = document.getElementById('dropzone');
+        const browseBtn = document.getElementById('browseBtn');
+        const fileInput = document.getElementById('fileInput');
+        const columnSelection = document.getElementById('columnSelection');
+        const columnCheckboxes = document.getElementById('columnCheckboxes');
+        const operationsSection = document.getElementById('operationsSection');
+        const chartConfigSection = document.getElementById('chartConfigSection');
+        const dataTable = document.getElementById('dataTable');
+        const exportDataBtn = document.getElementById('exportDataBtn');
+        const downloadChartBtn = document.getElementById('downloadChartBtn');
+        const calculationSelect = document.getElementById('calculationSelect');
+        const conversionSelect = document.getElementById('conversionSelect');
+        const filterInput = document.getElementById('filterInput');
+        const applyOperationsBtn = document.getElementById('applyOperationsBtn');
+        const chartType = document.getElementById('chartType');
+        const xAxisSelect = document.getElementById('xAxisSelect');
+        const yAxisSelect = document.getElementById('yAxisSelect');
+        const gaussianOptions = document.getElementById('gaussianOptions');
+        const generateChartBtn = document.getElementById('generateChartBtn');
+        const ctx = document.getElementById('dataChart').getContext('2d');
+
+        // Event Listeners
+        browseBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleFileSelect);
+        dropzone.addEventListener('dragover', handleDragOver);
+        dropzone.addEventListener('dragleave', handleDragLeave);
+        dropzone.addEventListener('drop', handleDrop);
+        applyOperationsBtn.addEventListener('click', applyOperations);
+        chartType.addEventListener('change', toggleGaussianOptions);
+        generateChartBtn.addEventListener('click', generateChart);
+        exportDataBtn.addEventListener('click', exportData);
+        downloadChartBtn.addEventListener('click', downloadChart);
+
+        // Funções de manipulação de arquivos
+        function handleFileSelect(e) {
+            const file = e.target.files[0] || (e.dataTransfer && e.dataTransfer.files[0]);
+            if (!file) return;
+            
+            readFile(file);
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            dropzone.classList.add('active');
+        }
+
+        function handleDragLeave() {
+            dropzone.classList.remove('active');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            dropzone.classList.remove('active');
+            
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            
+            readFile(file);
+        }
+
+        function readFile(file) {
+            const reader = new FileReader();
+            const fileName = file.name.toLowerCase();
+            
+            if (fileName.endsWith('.csv') || fileName.endsWith('.txt')) {
+                fileType = 'csv';
+                reader.onload = function(e) {
+                    parseCSV(e.target.result);
+                };
+                reader.readAsText(file);
+            } else if (fileName.endsWith('.xml')) {
+                fileType = 'xml';
+                reader.onload = function(e) {
+                    parseXML(e.target.result);
+                };
+                reader.readAsText(file);
+            } else if (fileName.endsWith('.json')) {
+                fileType = 'json';
+                reader.onload = function(e) {
+                    parseJSON(e.target.result);
+                };
+                reader.readAsText(file);
+            } else {
+                alert('Formato de arquivo não suportado. Por favor, use CSV, XML, TXT ou JSON.');
+                return;
+            }
+        }
+
+        // Funções de parsing
+        function parseCSV(csvText) {
+            Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    if (results.errors.length > 0) {
+                        alert('Erro ao processar CSV: ' + results.errors[0].message);
+                        return;
+                    }
+                    rawData = results.data;
+                    processRawData();
+                }
+            });
+        }
+
+        function parseXML(xmlText) {
+            try {
+                const x2js = new X2JS();
+                const jsonObj = x2js.xml2js(xmlText);
+                
+                // Transforma o objeto XML em um formato tabular
+                let data = [];
+                const rootKey = Object.keys(jsonObj)[0];
+                const items = jsonObj[rootKey].item || jsonObj[rootKey].row || jsonObj[rootKey].record;
+                
+                if (Array.isArray(items)) {
+                    items.forEach(item => {
+                        let row = {};
+                        for (const key in item) {
+                            if (typeof item[key] === 'object' && item[key] !== null) {
+                                // Para valores aninhados, concatenamos com ponto
+                                flattenObject(item[key], row, key);
+                            } else {
+                                row[key] = item[key];
+                            }
+                        }
+                        data.push(row);
+                    });
+                } else if (items) {
+                    let row = {};
+                    for (const key in items) {
+                        if (typeof items[key] === 'object' && items[key] !== null) {
+                            flattenObject(items[key], row, key);
+                        } else {
+                            row[key] = items[key];
+                        }
+                    }
+                    data.push(row);
+                }
+                
+                rawData = data;
+                processRawData();
+            } catch (e) {
+                alert('Erro ao processar XML: ' + e.message);
+            }
+        }
+
+        function flattenObject(obj, result, prefix = '') {
+            for (const key in obj) {
+                if (typeof obj[key] === 'object' && obj[key] !== null) {
+                    flattenObject(obj[key], result, prefix ? `${prefix}.${key}` : key);
+                } else {
+                    result[prefix ? `${prefix}.${key}` : key] = obj[key];
+                }
+            }
+        }
+
+        function parseJSON(jsonText) {
+            try {
+                const jsonObj = JSON.parse(jsonText);
+                
+                // Verifica se é um array de objetos
+                if (Array.isArray(jsonObj)) {
+                    rawData = jsonObj;
+                } 
+                // Verifica se é um objeto com uma propriedade que contém os dados
+                else if (typeof jsonObj === 'object' && jsonObj !== null) {
+                    const dataKey = Object.keys(jsonObj).find(key => 
+                        Array.isArray(jsonObj[key]) && 
+                        jsonObj[key].length > 0 && 
+                        typeof jsonObj[key][0] === 'object'
+                    );
+                    
+                    if (dataKey) {
+                        rawData = jsonObj[dataKey];
+                    } else {
+                        // Se não encontrar um array de objetos, tenta transformar em array
+                        rawData = [jsonObj];
+                    }
+                }
+                
+                processRawData();
+            } catch (e) {
+                alert('Erro ao processar JSON: ' + e.message);
+            }
+        }
+
+        // Processamento inicial dos dados
+        function processRawData() {
+            if (rawData.length === 0) {
+                alert('Nenhum dado encontrado no arquivo.');
+                return;
+            }
+            
+            // Identifica as colunas
+            columns = Object.keys(rawData[0]);
+            
+            // Inicializa processedData como uma cópia de rawData
+            processedData = JSON.parse(JSON.stringify(rawData));
+            
+            // Mostra a seleção de colunas
+            showColumnSelection();
+            
+            // Preenche a tabela com todos os dados inicialmente
+            populateDataTable();
+            
+            // Mostra os botões de operações
+            operationsSection.style.display = 'block';
+            chartConfigSection.style.display = 'block';
+            exportDataBtn.style.display = 'inline-block';
+        }
+
+        // Mostra a seleção de colunas
+        function showColumnSelection() {
+            columnSelection.style.display = 'block';
+            columnCheckboxes.innerHTML = '';
+            
+            columns.forEach(col => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `col_${col}`;
+                checkbox.value = col;
+                checkbox.className = 'mr-2';
+                checkbox.checked = true;
+                
+                const label = document.createElement('label');
+                label.htmlFor = `col_${col}`;
+                label.textContent = col;
+                label.className = 'text-sm text-gray-700';
+                
+                div.appendChild(checkbox);
+                div.appendChild(label);
+                columnCheckboxes.appendChild(div);
+            });
+            
+            // Preenche os selects de eixos do gráfico
+            fillAxisSelects();
+        }
+
+        // Preenche a tabela de dados
+        function populateDataTable(filteredData = null) {
+            const dataToShow = filteredData || processedData;
+            
+            // Limpa a tabela
+            dataTable.innerHTML = '';
+            
+            if (dataToShow.length === 0) {
+                dataTable.innerHTML = '<tr><td colspan="100%" class="py-4 text-center text-gray-500">Nenhum dado para exibir</td></tr>';
+                return;
+            }
+            
+            // Cria o cabeçalho
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            headerRow.className = 'bg-gray-100';
+            
+            columns.forEach(col => {
+                const th = document.createElement('th');
+                th.className = 'p-3 text-left text-sm font-medium text-gray-700 border-b';
+                th.textContent = col;
+                headerRow.appendChild(th);
+            });
+            
+            thead.appendChild(headerRow);
+            dataTable.appendChild(thead);
+            
+            // Cria o corpo
+            const tbody = document.createElement('tbody');
+            
+            dataToShow.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50';
+                
+                columns.forEach(col => {
+                    const td = document.createElement('td');
+                    td.className = 'p-3 text-sm text-gray-700 border-b';
+                    td.textContent = row[col] !== undefined ? row[col] : '';
+                    tr.appendChild(td);
+                });
+                
+                tbody.appendChild(tr);
+            });
+            
+            dataTable.appendChild(tbody);
+        }
+
+        // Preenche os selects de eixos
+        function fillAxisSelects() {
+            xAxisSelect.innerHTML = '';
+            yAxisSelect.innerHTML = '';
+            
+            // Adiciona opção vazia
+            const emptyOption = document.createElement('option');
+            emptyOption.value = '';
+            emptyOption.textContent = '-- Selecionar --';
+            xAxisSelect.appendChild(emptyOption.cloneNode(true));
+            yAxisSelect.appendChild(emptyOption.cloneNode(true));
+            
+            // Adiciona as colunas
+            columns.forEach(col => {
+                const optionX = document.createElement('option');
+                optionX.value = col;
+                optionX.textContent = col;
+                xAxisSelect.appendChild(optionX);
+                
+                const optionY = document.createElement('option');
+                optionY.value = col;
+                optionY.textContent = col;
+                yAxisSelect.appendChild(optionY);
+            });
+        }
+
+        // Aplica operações nos dados
+        function applyOperations() {
+            // Filtra as colunas selecionadas
+            const selectedColumns = Array.from(document.querySelectorAll('#columnCheckboxes input:checked')).map(cb => cb.value);
+            
+            // Se nenhuma coluna estiver selecionada, usa todas
+            const colsToProcess = selectedColumns.length > 0 ? selectedColumns : columns;
+            
+            // Aplica cálculos
+            const calculation = calculationSelect.value;
+            if (calculation) {
+                applyCalculation(colsToProcess, calculation);
+            }
+            
+            // Aplica conversões
+            const conversion = conversionSelect.value;
+            if (conversion) {
+                applyConversion(colsToProcess, conversion);
+            }
+            
+            // Aplica filtros
+            const filter = filterInput.value.trim();
+            if (filter) {
+                applyFilter(filter);
+            }
+            
+            // Atualiza a tabela
+            populateDataTable();
+            
+            // Atualiza os selects de eixos
+            fillAxisSelects();
+        }
+
+        // Aplica cálculos
+        function applyCalculation(columns, calculation) {
+            columns.forEach(col => {
+                // Verifica se a coluna contém valores numéricos
+                const numericValues = processedData.map(row => parseFloat(row[col])).filter(v => !isNaN(v));
+                
+                if (numericValues.length === 0) return;
+                
+                let result;
+                
+                switch (calculation) {
+                    case 'mean':
+                        result = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+                        break;
+                    case 'median':
+                        numericValues.sort((a, b) => a - b);
+                        const mid = Math.floor(numericValues.length / 2);
+                        result = numericValues.length % 2 !== 0 ? numericValues[mid] : (numericValues[mid - 1] + numericValues[mid]) / 2;
+                        break;
+                    case 'stddev':
+                        const mean = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+                        const squareDiffs = numericValues.map(v => Math.pow(v - mean, 2));
+                        result = Math.sqrt(squareDiffs.reduce((a, b) => a + b, 0) / numericValues.length);
+                        break;
+                    case 'sum':
+                        result = numericValues.reduce((a, b) => a + b, 0);
+                        break;
+                    case 'min':
+                        result = Math.min(...numericValues);
+                        break;
+                    case 'max':
+                        result = Math.max(...numericValues);
+                        break;
+                    case 'count':
+                        result = numericValues.length;
+                        break;
+                }
+                
+                // Adiciona uma nova linha com o resultado
+                const resultRow = {};
+                columns.forEach(c => {
+                    if (c === col) {
+                        resultRow[c] = result.toFixed(4);
+                    } else {
+                        resultRow[c] = '';
+                    }
+                });
+                
+                processedData.push(resultRow);
+            });
+        }
+
+        // Aplica conversões
+        function applyConversion(columns, conversion) {
+            processedData.forEach(row => {
+                columns.forEach(col => {
+                    const value = parseFloat(row[col]);
+                    if (isNaN(value)) return;
+                    
+                    let convertedValue;
+                    
+                    switch (conversion) {
+                        case 'celsiusToFahrenheit':
+                            convertedValue = (value * 9/5) + 32;
+                            row[col] = convertedValue.toFixed(2);
+                            break;
+                        case 'fahrenheitToCelsius':
+                            convertedValue = (value - 32) * 5/9;
+                            row[col] = convertedValue.toFixed(2);
+                            break;
+                        case 'kelvinToCelsius':
+                            convertedValue = value - 273.15;
+                            row[col] = convertedValue.toFixed(2);
+                            break;
+                        case 'celsiusToKelvin':
+                            convertedValue = value + 273.15;
+                            row[col] = convertedValue.toFixed(2);
+                            break;
+                        case 'metersToFeet':
+                            convertedValue = value * 3.28084;
+                            row[col] = convertedValue.toFixed(2);
+                            break;
+                        case 'feetToMeters':
+                            convertedValue = value / 3.28084;
+                            row[col] = convertedValue.toFixed(2);
+                            break;
+                    }
+                });
+            });
+        }
+
+        // Aplica filtros
+        function applyFilter(filter) {
+            try {
+                // Filtro simples para operadores básicos
+                const operatorMatch = filter.match(/([<>]=?|==?|!=)\s*([\d.]+)/);
+                if (operatorMatch) {
+                    const [_, operator, valueStr] = operatorMatch;
+                    const value = parseFloat(valueStr);
+                    const column = filter.split(operator)[0].trim();
+                    
+                    if (!columns.includes(column)) {
+                        alert(`Coluna "${column}" não encontrada.`);
+                        return;
+                    }
+                    
+                    processedData = processedData.filter(row => {
+                        const rowValue = parseFloat(row[column]);
+                        if (isNaN(rowValue)) return false;
+                        
+                        switch (operator) {
+                            case '>': return rowValue > value;
+                            case '>=': return rowValue >= value;
+                            case '<': return rowValue < value;
+                            case '<=': return rowValue <= value;
+                            case '==': return rowValue === value;
+                            case '=': return rowValue === value;
+                            case '!=': return rowValue !== value;
+                            default: return true;
+                        }
+                    });
+                } else {
+                    // Filtro por texto
+                    processedData = processedData.filter(row => {
+                        return Object.values(row).some(
+                            val => val.toString().toLowerCase().includes(filter.toLowerCase())
+                        );
+                    });
+                }
+            } catch (e) {
+                alert('Erro ao aplicar filtro: ' + e.message);
+            }
+        }
+
+        // Mostra/oculta opções gaussianas
+        function toggleGaussianOptions() {
+            gaussianOptions.style.display = chartType.value === 'gaussian' ? 'block' : 'none';
+        }
+
+        // Gera o gráfico
+        function generateChart() {
+            const type = chartType.value;
+            const xAxis = xAxisSelect.value;
+            const yAxis = yAxisSelect.value;
+            
+            if (!xAxis || !yAxis) {
+                alert('Selecione os eixos X e Y para gerar o gráfico.');
+                return;
+            }
+            
+            // Destrói o gráfico anterior se existir
+            if (currentChart) {
+                currentChart.destroy();
+            }
+            
+            // Prepara os dados
+            let labels = [];
+            let dataPoints = [];
+            
+            processedData.forEach(row => {
+                const xValue = row[xAxis];
+                const yValue = parseFloat(row[yAxis]);
+                
+                if (xValue !== undefined && !isNaN(yValue)) {
+                    labels.push(xValue);
+                    dataPoints.push(yValue);
+                }
+            });
+            
+            // Configurações do gráfico
+            let chartConfig = {
+                type: type === 'gaussian' ? 'line' : type,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: `${yAxis} vs ${xAxis}`,
+                        data: type === 'gaussian' ? generateGaussianData(labels) : dataPoints,
+                        backgroundColor: type === 'bar' || type === 'scatter' ? 'rgba(54, 162, 235, 0.5)' : 'rgba(54, 162, 235, 1)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: type === 'bar' ? 1 : 2,
+                        pointRadius: type === 'scatter' ? 5 : (type === 'line' ? 3 : 0),
+                        fill: type === 'gaussian'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `${yAxis} vs ${xAxis}`,
+                            font: {
+                                size: 16
+                            }
+                        },
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: xAxis
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: yAxis
+                            }
+                        }
+                    }
+                }
+            };
+            
+            // Configurações específicas para histograma
+            if (type === 'histogram') {
+                chartConfig.options.scales.x.type = 'linear';
+                chartConfig.options.scales.x.offset = true;
+                chartConfig.options.scales.x.bounds = 'ticks';
+                chartConfig.options.scales.x.ticks = {
+                    stepSize: 1
+                };
+            }
+            
+            // Cria o novo gráfico
+            currentChart = new Chart(ctx, chartConfig);
+            
+            // Mostra o botão de download
+            downloadChartBtn.style.display = 'inline-block';
+        }
+
+        // Gera dados para curva gaussiana
+        function generateGaussianData(labels) {
+            const mean = parseFloat(document.getElementById('gaussianMean').value) || 0;
+            const stdDev = parseFloat(document.getElementById('gaussianStdDev').value) || 1;
+            
+            return labels.map(x => {
+                x = parseFloat(x);
+                if (isNaN(x)) return 0;
+                
+                // Fórmula da distribuição normal
+                const exponent = -Math.pow(x - mean, 2) / (2 * Math.pow(stdDev, 2));
+                return (1 / (stdDev * Math.sqrt(2 * Math.PI))) * Math.exp(exponent);
+            });
+        }
+
+        // Exporta os dados processados
+        function exportData() {
+            let content, mimeType, fileName;
+            
+            switch (fileType) {
+                case 'csv':
+                    content = Papa.unparse(processedData);
+                    mimeType = 'text/csv';
+                    fileName = 'dados_processados.csv';
+                    break;
+                case 'xml':
+                    // Converte para XML simples
+                    const x2js = new X2JS();
+                    const jsonObj = { items: processedData };
+                    content = x2js.js2xml(jsonObj);
+                    mimeType = 'application/xml';
+                    fileName = 'dados_processados.xml';
+                    break;
+                case 'json':
+                default:
+                    content = JSON.stringify(processedData, null, 2);
+                    mimeType = 'application/json';
+                    fileName = 'dados_processados.json';
+                    break;
+            }
+            
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Faz download do gráfico
+        function downloadChart() {
+            if (!currentChart) {
+                alert('Nenhum gráfico para exportar.');
+                return;
+            }
+            
+            const link = document.createElement('a');
+            link.download = 'grafico.png';
+            link.href = document.getElementById('dataChart').toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>
